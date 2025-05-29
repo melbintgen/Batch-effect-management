@@ -53,4 +53,5 @@ sapply(c(cran.pkgs, bioc.pkgs), require, character.only = TRUE)
 
 ### References
 [1] Wang, Y., & Lê Cao, K. A. (2020). [Managing batch effects in microbiome data.](https://academic.oup.com/bib/article/21/6/1954/5643537) Briefings in bioinformatics, 21(6), 1954-1970.
+
 [2] Wang, Y., & Lê Cao, K. A. (2023). [PLSDA-batch: a multivariate framework to correct for batch effects in microbiome data.](https://academic.oup.com/bib/article/24/2/bbac622/6991121) Briefings in Bioinformatics, 24(2), bbac622.
