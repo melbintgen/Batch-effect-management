@@ -1,8 +1,8 @@
-# Batch-effect-management
+# MIG Workshop: Managing batch effects in biological studies
 
-**Authors: Yiwen (Eva) Wang**
+**Author: Yiwen (Eva) Wang**
 
-**Tutors: Xiaochen Zhang**
+**Tutor: Xiaochen Zhang**
 
 | Audience      | Prerequisites | Duration    |
 | ------------- | ------------- | ----------- |
@@ -12,7 +12,7 @@
 
 ### Description
 
-This repository includes materials for our workshop 'Batch Effect Management'. This workshop introduces commonly encountered sources of batch effects, batch x treatment designs and the scale of batch influence. We will discuss the suitable applications and limitations of existing methods through illustrative case studies. Practical guidelines will also be provided for preprocessed input data, including batch-effect detection and management, and evaluation of method effectiveness through visual and numerical approaches. While our examples are based on microbiome data, the concepts presented in the workshop are applicable to all types of omics data.
+This repository includes materials for our workshop 'Managing batch effects in biological studies'. This workshop introduces commonly encountered sources of batch effects, batch x treatment designs and the scale of batch influence. We will discuss the suitable applications and limitations of existing methods through illustrative case studies. Practical guidelines will also be provided for preprocessed input data, including batch-effect detection and management, and evaluation of method effectiveness through visual and numerical approaches. While our examples are based on microbiome data, the concepts presented in the workshop are applicable to all types of omics data.
 
 ### Installation Requirements
 
@@ -42,7 +42,7 @@ sapply(c(cran.pkgs, bioc.pkgs), require, character.only = TRUE)
 ```
 
 
-### Material
+### Materials
 
 [Click here](https://melbintgen.github.io/Batch-effect-management/Batch_effect_management_slides.pdf) to access the slides.
 
