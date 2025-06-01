@@ -190,7 +190,6 @@ To visualise the data, let's apply `pca()` function from *mixOmics* package and 
 
 
 ```{r ADpcaBefore, fig.align = 'center', fig.cap = 'PCA sample plot with densities for the AD data.'}
-# AD data
 ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
 
 Scatter_Density(object = ad.pca.before, batch = ad.batch, trt = ad.trt, 
@@ -315,7 +314,6 @@ In the heatmap, samples from the batch dated "14/04/2016" clustered together and
 To quantitatively evaluate batch effects, we can apply pRDA with `varpart()` function from *vegan* R package.
 
 ```{r}
-# AD data
 ad.factors.df <- data.frame(trt = ad.trt, batch = ad.batch)
 head(ad.factors.df)
 
@@ -343,7 +341,6 @@ Let's apply `type = "linear model"` to the **AD data**, given its balanced batch
 
 
 ```{r ADlm, fig.height = 13, fig.width = 12, out.width = '100%', fig.align = 'center', fig.cap = 'Diagnostic plots for the model fitted with batch effects for "OTU12" in the AD data.'}
-# AD data
 ad.lm <- linear_regres(data = ad.clr, 
                        trt = ad.trt, 
                        batch.fix = ad.batch, 
@@ -384,7 +381,7 @@ Before applying RUV4 (`RUV4()` from *ruv* package), we need to specify negative 
 
 Empirical negative controls that are not significantly differentially abundant (adjusted P > 0.05), based on a linear regression using treatment information as the only covariate, can be used here. However, in this case, we assume that batch and treatment are not correlated; otherwise, the selection of empirical negative controls will be biased, and the final batch effect adjustment may be spurious.
 
-Therefore, we will use a loop to fit a linear regression for each microbial variable and adjust the P values of the treatment effects for multiple comparisons using `p.adjust()` from *stats*. The empirical negative controls can then be identified based on the adjusted P values.
+Therefore, we will use a loop to fit a linear regression for each microbial variable and adjust the p values of the treatment effects for multiple comparisons using `p.adjust()` from *stats*. The empirical negative controls can then be identified based on the adjusted p values.
 
 ```{r}
 # empirical negative controls
@@ -406,7 +403,7 @@ ad.k.res <- getK(Y = ad.clr, X = ad.trt, ctl = ad.nc)
 ad.k <- ad.k.res$k
 ```
 
-After all required parameters are estimated, let's apply `RUV4()` with the known treatment variables, the selected negative control variables, and the estimated number of batch factors `k`. The resulting P values should also be adjusted for multiple comparisons.
+After all required parameters are estimated, let's apply `RUV4()` with the known treatment variables, the selected negative control variables, and the estimated number of batch factors `k`. The resulting p values should also be adjusted for multiple comparisons.
 
 ```{r}
 # RUV4
@@ -436,7 +433,6 @@ For **AD data**, we apply a non-parametric correction (`par.prior = FALSE`), usi
 ad.mod <- model.matrix( ~ ad.trt)
 ad.ComBat <- t(ComBat(t(ad.clr), batch = ad.batch, 
                       mod = ad.mod, par.prior = FALSE))
-
 ```
 
 ### PLSDA-batch
@@ -596,7 +592,7 @@ partVar_plot(prop.df = ad.prop.df)
 As shown in the figure above, the intersection between batch and treatment variance was small (1.3%), indicating that the batch x treatment design is not highly unbalanced. As a result, unweighted PLSDA-batch remained applicable, and the weighted version was not used. Among all methods, the data corrected with PLSDA-batch showed the best performance, explaining a higher proportion of treatment variance compared to the others. Notably, replicates in **AD data** are not present across all batches, highlighting the critical role of sample replicates in the effectiveness of RUVIII. Therefore, we calculated pseudo replicates and recalculated the batch effect corrected data. The result showed clear improvement, which can be found in the section "To go further".
 
 
-## Other methods {#other-methods-1}
+## Other methods
 
 ### $\mathbf{R^2}$
 
@@ -604,7 +600,6 @@ We can also calculate the $R^2$ from one-way ANOVA for each variable to evaluate
 
 
 ```{r ADr21, fig.height = 10, fig.width = 14, out.width = '100%', fig.align = 'center', fig.cap = '$R^2$ values for each microbial variable before and after batch effect correction.'}
-# AD data
 # scale
 ad.corr_scale.list <- lapply(ad.corrected.list, 
                              function(x){apply(x, 2, scale)})
@@ -736,57 +731,74 @@ Once batch effects have been adequately addressed, downstream analyses, such as 
 
 # To go further
 
+Due to time limitations, the methods shown in the decision tree that we don’t have time to cover in practice are presented in the following section.
+
 ## Accounting for batch effects
 
 ### Methods designed for microbiome data
 
 #### Zero-inflated Gaussian mixture model (CSS+ZIG)
 
-To use the ZIG model, we first need to create an `MRexperiment` object by applying `newMRexperiment()` (from *metagenomeSeq* package) to microbiome counts and annotated data frames containing metadata and taxonomic information generated using `AnnotatedDataFrame()` from *Biobase* package.
+To use the ZIG model, we first need to create an `MRexperiment` object by applying `newMRexperiment()` (from *metagenomeSeq* package) to the microbiome count data, along with annotated dataframes containing metadata and taxonomic information, respectively, which are generated using `AnnotatedDataFrame()` from *Biobase* package.
 
 ```{r}
 # Creating a MRexperiment object (make sure no NA in metadata)
+## metadata
 AD.phenotypeData = AnnotatedDataFrame(data = as.data.frame(ad.metadata))
+
+## taxonomic info
 AD.taxaData = AnnotatedDataFrame(data = as.data.frame(colData(AD_data$FullData)))
+
 AD.obj = newMRexperiment(counts = t(ad.count), 
                          phenoData = AD.phenotypeData, 
                          featureData = AD.taxaData)
 AD.obj
 ```
 
-The **AD count data** are then filtered with `filterData()` function (from *metagenomeSeq* package). We can use `MRcounts()` to extract the count data from the `MRexperiment` object.
+The **AD count data** are then filtered using `filterData()` function (from *metagenomeSeq* package). 
+
+To extract the count data from the `MRexperiment` object, we can use `MRcounts()` function.
 
 ```{r}
 # filtering data to maintain a threshold of minimum depth or OTU presence
+
+## before filtering
 dim(MRcounts(AD.obj))
+
 AD.obj = filterData(obj = AD.obj, present = 20, depth = 5)
+
+## after filtering
 dim(MRcounts(AD.obj))
 ```
 
 After filtering, the **AD count data** were reduced to 289 OTUs and 75 samples.
 
-We will then calculate the percentile for CSS normalisation with `cumNormStatFast()` function (from *metagenomeSeq* package). The CSS normalisation can be applied with `cumNorm()` and the normalised data can be exported using `MRcounts()` with `norm = TRUE`. The normalisation scaling factors for each sample, which are the sum of counts up to the calculated percentile, can be accessed through `normFactors()`. We can calculate the log transformed scaling factors by diving them with their median, which are better than the default scaling factors that are divided by 1000 (`log2(normFactors(obj)/1000 + 1)`).
+We will then calculate the percentile for CSS normalisation using `cumNormStatFast()` function (from *metagenomeSeq* package). CSS normalisation can be applied with `cumNorm()` and the normalised data can be exported using `MRcounts()` with `norm = TRUE`. The normalisation scaling factors for each sample, which are the sum of counts up to the calculated percentile, can be accessed using `normFactors()`. We can calculate the log-transformed scaling factors by diving them with their median, which are preferred over the default scaling factors that are divided by 1000 (`log2(normFactors(obj)/1000 + 1)`).
 
 
 ```{r}
 # calculate the percentile for CSS normalisation
 AD.pctl = cumNormStatFast(obj = AD.obj)
+
 # CSS normalisation
 AD.obj <- cumNorm(obj = AD.obj, p = AD.pctl)
+
 # export normalised data
 AD.norm.data <- MRcounts(obj = AD.obj, norm = TRUE)
 
 # normalisation scaling factors for each sample 
 AD.normFactor = normFactors(object = AD.obj)
+
+# log-transformed scaling factors
 AD.normFactor = log2(AD.normFactor/median(AD.normFactor) + 1)
 ```
 
-After that, let's create a design matrix with treatment variable (`phenol_conc`), batch variable (`seq_run`) and the log transformed scaling factors using `model.matrix()`, and then apply the ZIG model by `fitZig()` function. We should set `useCSSoffset = FALSE` to avoid using the default scaling factors as we have already included our customised scaling factor (`AD.normFactor`) in the design matrix.
-
+After that, let's create a design matrix with the treatment variable (`phenol_conc`), batch variable (`seq_run`) and the log-transformed scaling factors using `model.matrix()`. We can then apply the ZIG model using `fitZig()` function. The argument `useCSSoffset = FALSE` should be set to avoid using the default scaling factors, as we have already included our customised scaling factor (`AD.normFactor`) in the design matrix.
 
 ```{r}
 # treatment variable
 phenol_conc = pData(object = AD.obj)$initial_phenol_concentration.regroup
+
 # batch variable
 seq_run = pData(object = AD.obj)$sequencing_run_date
 
@@ -797,39 +809,57 @@ AD.mod.full = model.matrix(~ phenol_conc + seq_run + AD.normFactor)
 AD.settings <- zigControl(maxit = 10, verbose = TRUE)
 
 # apply the ZIG model
-ADfit <- fitZig(obj = AD.obj, mod = AD.mod.full, 
-                useCSSoffset = FALSE, control = AD.settings)
+ADfit <- fitZig(obj = AD.obj, 
+                mod = AD.mod.full, 
+                useCSSoffset = FALSE, 
+                control = AD.settings)
 
+head(ADfit@fit$coefficients)
 ```
 
-The OTUs with the top 50 smallest p values can be extracted using `MRcoefs()`. Let's set `eff = 0.5`, so only the OTUs with at least "0.5" quantile (50%) number of effective samples (positive samples + estimated undersampling zeroes) are extracted.
+The OTUs with the top 50 smallest p values can be extracted using `MRcoefs()`. Let's set `eff = 0.5` so that only OTUs with at least the "0.5" quantile (50%) number of effective samples (i.e., positive samples + estimated undersampling zeroes) are extracted. 
 
+We also set the arguments `coef = 2` to focus on the second column of the coefficient matrix, which corresponds to the treatment effects, and `group = 3` to sort the OTUs by their p values in increasing order.
 
 ```{r}
-ADcoefs <- MRcoefs(ADfit, coef = 2, group = 3, number = 50, eff = 0.5)
+ADcoefs <- MRcoefs(ADfit, coef = 2, 
+                   group = 3, number = 50, 
+                   eff = 0.5)
 head(ADcoefs)
 ```
+
 
 ### Methods adapted for microbiome data
 
 #### Surrogate variable analysis (SVA)
 
-SVA only accounts for unknown batch effects. Therefore, we assume that the batch grouping information in the **AD data** is unknown. We first need to build two design matrices with (`ad.mod`) and without (`ad.mod0`) treatment grouping information generated with `model.matrix()` function from *stats*. We then need to use `num.sv()` from *sva* package to determine the number of batch variables `n.sv` that is used to estimate batch effects in function `sva()`.
+SVA only accounts for unknown batch effects. Therefore, we assume that the batch grouping information in the **AD data** is unknown, and that the batch effects are systematic. 
+
+We first need to build two design matrices with (`ad.mod`) and without (`ad.mod0`) treatment grouping information using `model.matrix()` function from *stats*. We will then use `num.sv()` from *sva* package to determine the number of surrogate or batch-related variables `n.sv` to estimate in function `sva()`.
 
 ```{r}
-# estimate batch effects
+# the design with treatment
 ad.mod <- model.matrix( ~ ad.trt)
+# the design without treatment
 ad.mod0 <- model.matrix( ~ 1, data = ad.trt)
+
+# estimate the number of batch-related variables
 ad.sva.n <- num.sv(dat = t(ad.clr), mod = ad.mod, method = 'leek')
-ad.sva <- sva(t(ad.clr), ad.mod, ad.mod0, n.sv = ad.sva.n)
+
+# estimate batch-related variables
+ad.sva <- sva(t(ad.clr), 
+              ad.mod, ad.mod0, 
+              n.sv = ad.sva.n)
 ```
 
-The estimated batch effects are then input into `f.pvalue()` to calculate the P-values of treatment effects. The estimated batch effects in SVA are assumed to be independent of the treatment effects. However, SVA can tolerate some sort of correlation between batch and treatment effects, but only to a limited extent [@wang2020managing].
+The estimated batch effects are then input into `f.pvalue()` to calculate the p values of treatment effects. In SVA, batch effects are assumed to be independent of treatment effects. If they are correlated due to study design or biological reasons, the estimation of batch-related variables will be biased and may affect the accuracy of downstream linear regression results. However, some correlation may exist between the estimated batch effects and treatment due to how SVA estimates batch-related variables from those least affected by treatment. These variables may still carry some treatment information, leading to estimated batch effects that are weakly correlated with treatment effects.  [@wang2020managing].
 
 ```{r}
-# include estimated batch effects in the linear model
+# include estimated batch-related variables in the linear model
 ad.mod.batch <- cbind(ad.mod, ad.sva$sv)
 ad.mod0.batch <- cbind(ad.mod0, ad.sva$sv)
+
+# linear model
 ad.sva.p <- f.pvalue(t(ad.clr), ad.mod.batch, ad.mod0.batch)
 ad.sva.p.adj <- p.adjust(ad.sva.p, method = 'fdr')
 ```
@@ -838,48 +868,55 @@ ad.sva.p.adj <- p.adjust(ad.sva.p, method = 'fdr')
 
 ### removeBatchEffect
 
-Before applying removeBatchEffect, we need to prepare a design matrix (`design`) that includes the treatment grouping information, which will be preserved during batch effect correction. This design matrix can be generated using `model.matrix()` function from *stats*. 
+Before applying removeBatchEffect, we need to prepare a design matrix (`ad.mod`) that includes the treatment grouping information, which is used to preserve treatment effects during batch effect correction. This design matrix can be generated using `model.matrix()` function from *stats*. 
 
-Then we can use `removeBatchEffect()` function (*limma* package) with input batch grouping information (`batch`) and treatment design matrix (`design`) to calculate batch effect corrected data `ad.rBE`.
-
+Then we can use `removeBatchEffect()` function (*limma* package) with the batch grouping information (`batch`) and the treatment design matrix (`design`) as inputs to calculate the batch effect corrected data `ad.rBE`.
 
 ```{r}
+# generate treatment design matrix
 ad.mod <- model.matrix( ~ ad.trt)
-ad.rBE <- t(removeBatchEffect(t(ad.clr), batch = ad.batch, 
+
+ad.rBE <- t(removeBatchEffect(t(ad.clr), 
+                              batch = ad.batch, 
                               design = ad.mod))
 ```
 
 ### sPLSDA-batch
 
-To apply sPLSDA-batch, we will use the same function `PLSDA_batch()`, but we need to specify the number of variables to select on each component (usually only treatment-related components `keepX.trt`). To determine the optimal number of variables to select, we will use `tune.splsda()` function from *mixOmics* package [@rohart2017mixomics] with all possible numbers of variables to select for each component (`test.keepX`).
-
+Applying sPLSDA-batch is similar to applying PLSDA-batch. We will use the same function `PLSDA_batch()`, but need to specify the number of variables to select on each component, typically for the treatment-related components (`keepX.trt`). To determine the optimal number of variables to select, we will use `tune.splsda()` function from *mixOmics* package [@rohart2017mixomics], testing a range of possible values for each component (`test.keepX`).
 
 ```{r, eval = F}
 # estimate the number of variables to select per treatment component
 set.seed(777)
+
+# generate a range of possible values
 ad.test.keepX = c(seq(1, 10, 1), seq(20, 100, 10), 
                   seq(150, 231, 50), 231)
-ad.trt.tune.v <- tune.splsda(X = ad.clr, Y = ad.trt, 
-                             ncomp = 1, test.keepX = ad.test.keepX, 
-                             validation = 'Mfold', folds = 4, 
+
+ad.trt.tune.v <- tune.splsda(X = ad.clr, 
+                             Y = ad.trt, 
+                             ncomp = 1, 
+                             test.keepX = ad.test.keepX, 
+                             validation = 'Mfold', 
+                             folds = 4, 
                              nrepeat = 50)
 ad.trt.tune.v$choice.keepX #100
-
 ```
 
-Here, the optimal number of variables to select for the treatment component was 100. Since we have adjusted the amount of treatment variation to preserve, we need to re-estimate the optimal number of components related to batch effects using the same criterion mentioned in section "PLSDA-batch".
+Here, the optimal number of variables to select for the treatment component was 100. Since we have adjusted the amount of treatment variation to preserve, we need to re-estimate the optimal number of components related to batch effects using the same criterion described in the section "PLSDA-batch".
 
 ```{r}
 # estimate the number of batch components
 ad.batch.tune <- PLSDA_batch(X = ad.clr, 
-                             Y.trt = ad.trt, Y.bat = ad.batch,
+                             Y.trt = ad.trt, 
+                             Y.bat = ad.batch,
                              ncomp.trt = 1, keepX.trt = 100,
                              ncomp.bat = 10)
 ad.batch.tune$explained_variance.bat #4
 sum(ad.batch.tune$explained_variance.bat$Y[seq_len(4)])
 ```
 
-According to the result, we needed 4 batch-related components to remove batch variance from the data with function `PLSDA_batch()`.
+According to the result, we needed 4 batch-related components to remove batch variance from the data using function `PLSDA_batch()`.
 
 ```{r}
 ad.sPLSDA_batch.res <- PLSDA_batch(X = ad.clr, 
@@ -889,12 +926,11 @@ ad.sPLSDA_batch.res <- PLSDA_batch(X = ad.clr,
 ad.sPLSDA_batch <- ad.sPLSDA_batch.res$X.nobatch
 ```
 
-Note: for unbalanced batch x treatment design (with the exception of the nested design), we can specify `balance = FALSE` in `PLSDA_batch()` function to apply weighted PLSDA-batch.
+Note: For an unbalanced batch x treatment design (except in the case of a nested design), we can set `balance = FALSE` in `PLSDA_batch()` function to apply weighted PLSDA-batch.
 
 ### Percentile Normalisation (PN)
 
 For PN correction, let's apply `percentile_norm()` function from *PLSDAbatch* package and specify a control group (`ctrl.grp`).
-
 
 ```{r}
 ad.PN <- percentile_norm(data = ad.clr, batch = ad.batch, 
@@ -903,8 +939,10 @@ ad.PN <- percentile_norm(data = ad.clr, batch = ad.batch,
 
 ### RUVIII with pseudo replicates
 
+In the previous RUVIII application using the AD study's original sample replicates, the result was poor due to uneven representation of replicates across batches. To address this, we will generate pseudo-replicates by calculating the sample mean of each batch within each treatment group. Since the means across batches are expected to be similar for the same treatment, these pseudo-replicates can serve as substitutes for actual replicates.
+
 ```{r}
-# add group mean as the pseudo replicates
+# add group means as the pseudo-replicates
 ad_group_mean <- matrix(ncol = ncol(ad.clr))
 ad_mean_trt_lab <- c()
 ad_mean_batch_lab <- c()
@@ -925,7 +963,7 @@ ad.clr.new <- rbind(ad.clr, ad_group_mean)
 ad.trt.new <- as.factor(c(as.character(ad.trt), ad_mean_trt_lab))
 ad.batch.new <- as.factor(c(as.character(ad.batch), ad_mean_batch_lab))
 
-# empirical negative controls
+# recalculate empirical negative controls
 ad.empir.p.new <- c()
 for(e in seq_len(ncol(ad.clr.new))){
   ad.empir.lm <- lm(ad.clr.new[,e] ~ ad.trt.new)
@@ -940,18 +978,19 @@ ad.k.new <- ad.k.res.new$k
 
 # RUVIII
 ad.RUVIII.new <- RUVIII(Y = ad.clr.new, 
-                    M = ad.replicates.matrix.new, 
-                    ctl = ad.nc.new, k = ad.k.new)
+                        M = ad.replicates.matrix.new, 
+                        ctl = ad.nc.new, 
+                        k = ad.k.new)
+
 rownames(ad.RUVIII.new) <- rownames(ad.clr.new)
 ```
 
 
 ## Assessing batch effect correction
 
-
 ### PCA
 
-First, we can compare the PCA sample plots before and after batch effect correction with different methods.
+Here, we compare the PCA sample plots before and after batch effect correction using all methods presented in the workshop.
 
 ```{r}
 ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
@@ -1004,7 +1043,7 @@ ad.pca.RUVIII.new.plot <- Scatter_Density(object = ad.pca.RUVIII.new,
 
 ```
 
-```{r ADpca2, fig.height = 17, fig.width = 12, out.width = '100%', echo = FALSE, fig.align = 'center', fig.cap = 'The PCA sample plots with densities before and after batch effect correction in the AD data.'}
+```{r ADpca2, fig.height = 17, fig.width = 12, out.width = '100%', echo = FALSE, fig.align = 'center', fig.cap = 'PCA sample plots with densities before and after batch effect correction in the AD data.'}
 grid.arrange(ad.pca.before.plot, ad.pca.rBE.plot, 
              ad.pca.ComBat.plot, ad.pca.PLSDA_batch.plot, 
              ad.pca.sPLSDA_batch.plot, ad.pca.PN.plot, 
@@ -1014,7 +1053,9 @@ grid.arrange(ad.pca.before.plot, ad.pca.rBE.plot,
 
 ### pRDA
 
-```{r ADprda2, fig.height = 6, fig.align = 'center', fig.cap = 'Global explained variance before and after batch effect correction for the AD data, where RUVIII uses pseudo replicates.'}
+We can also calculate and display the pRDA results for the data before and after batch effect correction using all methods presented in the workshop.
+
+```{r ADprda2, fig.height = 6, fig.align = 'center', fig.cap = 'Global explained variance before and after batch effect correction in the AD data.'}
 
 ad.corrected.list <- list(`Before correction` = ad.clr, 
                           removeBatchEffect = ad.rBE, 
@@ -1052,6 +1093,7 @@ ad.prop.df <- rbind(ad.prop.df, `RUVIII+pseR` = RUVIII.prop)
 partVar_plot(prop.df = ad.prop.df)
 ```
 
+We can also apply additional methods introduced in the workshop to evaluate batch effect correction.
 
 # Session Info
 

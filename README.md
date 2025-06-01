@@ -48,6 +48,8 @@ sapply(c(cran.pkgs, bioc.pkgs), require, character.only = TRUE)
 
 [Click here](https://melbintgen.github.io/Batch-effect-management/docs/Batch_effect_management.html) to access the HTML workshop document.
 
+[Click here](https://melbintgen.github.io/Batch-effect-management/docs/Batch_effect_management_practice.R) to access the Rscript.
+
 
 ### References
 [1] Wang, Y., & Lê Cao, K. A. (2020). [Managing batch effects in microbiome data.](https://academic.oup.com/bib/article/21/6/1954/5643537) Briefings in bioinformatics, 21(6), 1954-1970.
