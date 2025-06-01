@@ -6,9 +6,8 @@
 
 | Audience      | Prerequisites | Duration    |
 | ------------- | ------------- | ----------- |
-| Biologists    | [Intro to R](https://melbintgen.github.io/intro-to-r/intro_r_biologists.html)          |~ 2.5 hours    |
-| Biologists    | [Intro to Experimental Designs](https://github.com/melbintgen/intro-to-experimental-design)          |~ 3.0 hours    |
-| Biologists    | [Intro to Linear Models](https://melbintgen.github.io/intro-to-linear-models/linear_models.html)          |~ 3.0 hours    |
+| Biologists, Computational biologists | [Intro to R](https://melbintgen.github.io/intro-to-r/intro_r_biologists.html), [Intro to Experimental Designs](https://github.com/melbintgen/intro-to-experimental-design), [Intro to Linear Models](https://melbintgen.github.io/intro-to-linear-models/linear_models.html) |~ 3 hours |
+
 
 ### Description
 
