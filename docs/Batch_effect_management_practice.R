@@ -24,7 +24,7 @@ sapply(c(cran.pkgs, bioc.pkgs), package.version)
 
 
 #--------------------------------- Load data ----------------------------------#
-# set the path to the folder where you saved all the materials
+# set the path to the folder where you saved your data
 setwd('/Users/YIWENW9/Documents/kim_lab/batch effect workshop/Batch effect management/src')
 
 load(file = './example_ADdata.rda')
