@@ -23,51 +23,27 @@ suppressMessages(suppressWarnings(sapply(c(cran.pkgs, bioc.pkgs), require,
 sapply(c(cran.pkgs, bioc.pkgs), package.version)
 
 
-#----------------------------- Data pre-processing ----------------------------#
+#--------------------------------- Load data ----------------------------------#
+# set the path to the folder where you saved all the materials
+setwd('/Users/YIWENW9/Documents/kim_lab/batch effect workshop/Batch effect management/src')
 
-## Pre-filtering
-# AD data
-data('AD_data') 
-ad.count <- assays(AD_data$FullData)$Count
-dim(ad.count)
+load(file = './example_ADdata.rda')
 
-ad.filter.res <- PreFL(data = ad.count)
-ad.filter <- ad.filter.res$data.filter
-dim(ad.filter)
+ad.clr = example_ADdata$data
+ad.trt = example_ADdata$treatment
+ad.batch = example_ADdata$batch
 
-# zero proportion before filtering
-ad.filter.res$zero.prob
-# zero proportion after filtering
-sum(ad.filter == 0)/(nrow(ad.filter) * ncol(ad.filter))
-
-# extract the metadata
-ad.metadata <- rowData(AD_data$FullData)
-
-# extract the batch info
-ad.batch = factor(ad.metadata$sequencing_run_date, 
-                  levels = unique(ad.metadata$sequencing_run_date))
-
-# extract the treatment info
-ad.trt = as.factor(ad.metadata$initial_phenol_concentration.regroup)
-
-# add names on each 
-names(ad.batch) <- names(ad.trt) <- rownames(ad.metadata)
+dim(ad.clr)
 
 #### Exercise 1: How many samples are there within each treatment and batch group?
 
+table(ad.batch)
 length(ad.batch)
-summary(ad.batch)
 
+table(ad.trt)
 length(ad.trt)
-summary(ad.trt)
 
 table(ad.batch, ad.trt)
-
-#######################################
-
-## Transformation
-ad.clr <- logratio.transfo(X = ad.filter, logratio = 'CLR', offset = 1) 
-class(ad.clr) = 'matrix'
 
 #--------------------------- Batch effect detection ---------------------------#
 
@@ -211,6 +187,7 @@ ad.PLSDA_batch.res <- PLSDA_batch(X = ad.clr,
 ad.PLSDA_batch <- ad.PLSDA_batch.res$X.nobatch
 
 ### Remove Unwanted Variation-III (RUVIII)
+ad.metadata <- example_ADdata$metadata
 ad.replicates <- ad.metadata$sample_name.data.extraction
 head(table(ad.replicates, ad.batch))
 

@@ -95,57 +95,22 @@ suppressMessages(suppressWarnings(sapply(c(cran.pkgs, bioc.pkgs), require,
 sapply(c(cran.pkgs, bioc.pkgs), package.version)
 ```
 
-# Data pre-processing
 
-Before detecting batch effects, the data should be properly preprocessed. The preprocessing steps may vary depending on the type of omics data. Since the example data used here are from microbiome studies, the steps below illustrate how to preprocess microbial count data.
+# Load data
 
-## Pre-filtering
-
-Let's load the **AD data** stored internally in *PLSDAbatch* R package with function `data()` and extract the count data using function `assays()` from *TreeSummarizedExperiment* R package.
+Before detecting batch effects, the data should be properly preprocessed. The preprocessing steps may vary depending on the type of omics data. 
 
 ```{r}
-# AD data
-data('AD_data') 
-ad.count <- assays(AD_data$FullData)$Count
-dim(ad.count)
+load(file = './example_ADdata.rda')
+
+ad.clr = example_ADdata$data
+ad.trt = example_ADdata$treatment
+ad.batch = example_ADdata$batch
+
+dim(ad.clr)
 ```
 
-The raw data include 567 OTUs and 75 samples. 
-
-Then, we will use the function `PreFL()` ( *PLSDAbatch* package) to filter the data.
-
-
-```{r}
-ad.filter.res <- PreFL(data = ad.count)
-ad.filter <- ad.filter.res$data.filter
-dim(ad.filter)
-
-# zero proportion before filtering
-ad.filter.res$zero.prob
-# zero proportion after filtering
-sum(ad.filter == 0)/(nrow(ad.filter) * ncol(ad.filter))
-```
-
-After filtering, 231 OTUs remained, and the proportion of zeroes decreased from 63% to 38%.
-
-Note: The `PreFL()` function is only dedicated to raw counts, rather than relative abundance data. We also recommend starting the pre-filtering on raw counts, rather than on relative abundance data to mitigate compositionality issue.  
-
-In addition, don't forget to extract the batch and treatment information out.
-
-```{r}
-# extract the metadata
-ad.metadata <- rowData(AD_data$FullData)
-
-# extract the batch info
-ad.batch = factor(ad.metadata$sequencing_run_date, 
-                levels = unique(ad.metadata$sequencing_run_date))
-
-# extract the treatment info
-ad.trt = as.factor(ad.metadata$initial_phenol_concentration.regroup)
-
-# add names on each 
-names(ad.batch) <- names(ad.trt) <- rownames(ad.metadata)
-```
+The microbial data include 231 OTUs and 75 samples.
 
 #### Exercise 1: How many samples are there within each treatment and batch group?
 
@@ -160,26 +125,17 @@ Show solutions
 #### Answer
 
 ```{r}
+table(ad.batch)
 length(ad.batch)
-summary(ad.batch)
 
+table(ad.trt)
 length(ad.trt)
-summary(ad.trt)
 
 table(ad.batch, ad.trt)
 ```
-The treatment and batch grouping information corresponds to the same samples as the count data, which is required for downstream analysis. We also examined the sample sizes within each treatment and batch group to assess whether the batch × treatment design is balanced. In the **AD data**, the design is approximately balanced.
+The treatment and batch grouping information corresponds to the same samples as the microbial data, which is required for downstream analysis. We also examined the sample sizes within each treatment and batch group to assess whether the batch × treatment design is balanced. In the **AD data**, the design is approximately balanced.
 :::
 <!-- end solutions -->
-
-## Transformation
-
-Prior to CLR transformation, we recommend adding 1 as an offset to the count data. Here, we will use `logratio.transfo()` function in *mixOmics* package to perform the CLR transformation.
-
-```{r}
-ad.clr <- logratio.transfo(X = ad.filter, logratio = 'CLR', offset = 1) 
-class(ad.clr) = 'matrix'
-```
 
 
 # Batch effect detection
@@ -482,6 +438,7 @@ The `RUVIII()` function is from *ruv* package. Similar to `RUV4()`, it requires 
 
 
 ```{r}
+ad.metadata <- example_ADdata$metadata
 ad.replicates <- ad.metadata$sample_name.data.extraction
 head(table(ad.replicates, ad.batch))
 
@@ -747,9 +704,9 @@ To use the ZIG model, we first need to create an `MRexperiment` object by applyi
 AD.phenotypeData = AnnotatedDataFrame(data = as.data.frame(ad.metadata))
 
 ## taxonomic info
-AD.taxaData = AnnotatedDataFrame(data = as.data.frame(colData(AD_data$FullData)))
+AD.taxaData = AnnotatedDataFrame(data = as.data.frame(example_ADdata$taxa))
 
-AD.obj = newMRexperiment(counts = t(ad.count), 
+AD.obj = newMRexperiment(counts = t(example_ADdata$count), 
                          phenoData = AD.phenotypeData, 
                          featureData = AD.taxaData)
 AD.obj
