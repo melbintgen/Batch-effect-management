@@ -30,7 +30,7 @@ install.packages(cran.pkgs)
 
 # Bioconductor packages
 bioc.pkgs <- c('mixOmics', 'sva', 'limma', 'Biobase', 'metagenomeSeq', 
-               'PLSDAbatch', 'TreeSummarizedExperiment')
+               'PLSDAbatch')
 
 if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install(bioc.pkgs)  

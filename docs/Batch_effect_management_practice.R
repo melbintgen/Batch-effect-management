@@ -10,7 +10,7 @@ cran.pkgs <- c('pheatmap', 'vegan', 'ruv', 'ggplot2',
 
 # Bioconductor
 bioc.pkgs <- c('mixOmics', 'sva', 'limma', 'Biobase', 'metagenomeSeq', 
-               'PLSDAbatch', 'TreeSummarizedExperiment')
+               'PLSDAbatch')
 
 # if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # BiocManager::install(bioc.pkgs)  
