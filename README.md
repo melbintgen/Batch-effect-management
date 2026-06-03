@@ -52,6 +52,9 @@ sapply(c(cran.pkgs, bioc.pkgs), require, character.only = TRUE)
 ### Data
 All data used for the workshop are in [Rdata](https://melbintgen.github.io/Batch-effect-management/docs/example_ADdata.rda).
 
+## License
+This repository is licensed under the GNU Affero General Public License v3.0.
+
 
 
 ### References
