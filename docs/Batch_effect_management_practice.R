@@ -4,7 +4,7 @@
 
 # CRAN
 cran.pkgs <- c('pheatmap', 'vegan', 'ruv', 'ggplot2', 
-               'performance', 'gridExtra')
+               'performance', 'gridExtra', 'see')
 
 # install.packages(cran.pkgs)
 
@@ -14,6 +14,7 @@ bioc.pkgs <- c('mixOmics', 'sva', 'limma', 'Biobase', 'metagenomeSeq',
 
 # if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # BiocManager::install(bioc.pkgs)  
+# BiocManager::install("EvaYiwenWang/PLSDAbatch") # install from GitHub
 
 # load packages 
 suppressMessages(suppressWarnings(sapply(c(cran.pkgs, bioc.pkgs), require, 
@@ -22,10 +23,9 @@ suppressMessages(suppressWarnings(sapply(c(cran.pkgs, bioc.pkgs), require,
 # print package versions
 sapply(c(cran.pkgs, bioc.pkgs), package.version)
 
-
 #--------------------------------- Load data ----------------------------------#
 # set the path to the folder where you saved your data
-setwd('/Users/YIWENW9/Documents/kim_lab/batch effect workshop/Batch effect management/src')
+setwd('/Users/YIWENW9/Documents/Batch effect management/src')
 
 load(file = './example_ADdata.rda')
 
@@ -48,10 +48,13 @@ table(ad.batch, ad.trt)
 #--------------------------- Batch effect detection ---------------------------#
 
 ## Principal component analysis (PCA)
-ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
+ad.pca.before <- mixOmics::pca(ad.clr, ncomp = 3, scale = TRUE)
 
-Scatter_Density(object = ad.pca.before, batch = ad.batch, trt = ad.trt, 
-                title = 'AD data', trt.legend.title = 'Phenol conc.')
+Scatter_Density(components = ad.pca.before$variates$X, comp = c(1,2), 
+                expl.var = ad.pca.before$prop_expl_var$X,
+                batch = ad.batch, trt = ad.trt, 
+                title = 'AD data', trt.legend.title = 'Phenol conc.',
+                color.set = color.mixo(1:5))
 
 #### Exercise 2: Interpret the PCA plot created above
 
@@ -62,10 +65,10 @@ ad.OTU_batch <- data.frame(value = ad.clr[,ad.OTU.name], batch = ad.batch)
 head(ad.OTU_batch)
 
 box_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'), 
-         x.angle = 30)
+         x.angle = 30, color.set = color.mixo(1:5))
 
 ## Density plots
-density_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'))
+density_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'), color.set = color.mixo(1:5))
 
 ## statistical tests
 # reference level: 14/04/2016
@@ -130,16 +133,21 @@ ad.lm <- linear_regres(data = ad.clr,
                        trt = ad.trt, 
                        batch.fix = ad.batch, 
                        type = 'linear model',
-                       p.adjust.method = 'fdr')
-
-# p values adjusted for batch effects
-ad.p.adj <- ad.lm$adj.p 
+                       p.adjust.method = 'fdr', 
+                       criterion = 'AIC')
 
 check_model(ad.lm$model$OTU12)
 
-head(ad.lm$adj.R2)
+ad.lm.best_model <- ad.lm$best.model
+names(ad.lm.best_model) <- colnames(ad.clr)
+head(ad.lm.best_model)
 
 head(ad.lm$AIC)
+
+head(ad.lm$adj.R2)
+
+# adjusted p values 
+ad.p.adj <- ad.lm$adj.p 
 
 ### Remove unwanted variation in 4 steps (RUV4) 
 # empirical negative controls
@@ -170,20 +178,17 @@ ad.ComBat <- t(ComBat(t(ad.clr), batch = ad.batch,
                       mod = ad.mod, par.prior = FALSE))
 
 ### PLSDA-batch
-# estimate the number of treatment components
-ad.trt.tune <- plsda(X = ad.clr, Y = ad.trt, ncomp = 5)
-ad.trt.tune$prop_expl_var #1
+# the optimal number of treatment components
+nlevels(ad.trt) - 1
 
-# estimate the number of batch components
-ad.batch.tune <- PLSDA_batch(X = ad.clr, 
-                             Y.trt = ad.trt, Y.bat = ad.batch,
-                             ncomp.trt = 1, ncomp.bat = 10)
-ad.batch.tune$explained_variance.bat 
-sum(ad.batch.tune$explained_variance.bat$Y[seq_len(4)]) #4
+# the optimal number of batch components
+nlevels(ad.batch) - 1
 
-ad.PLSDA_batch.res <- PLSDA_batch(X = ad.clr, 
+ad.PLSDA_batch.res <- PLSDA_batch(X = ad.clr,
                                   Y.trt = ad.trt, Y.bat = ad.batch,
-                                  ncomp.trt = 1, ncomp.bat = 4)
+                                  ncomp.trt = 1, ncomp.bat = 4,
+                                  mode = "regression"
+)
 ad.PLSDA_batch <- ad.PLSDA_batch.res$X.nobatch
 
 ### Remove Unwanted Variation-III (RUVIII)
@@ -201,30 +206,45 @@ rownames(ad.RUVIII) <- rownames(ad.clr)
 
 ## Methods that detect batch effects
 ### PCA
-ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
-ad.pca.ComBat <- pca(ad.ComBat, ncomp = 3, scale = TRUE)
-ad.pca.PLSDA_batch <- pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
-ad.pca.RUVIII <- pca(ad.RUVIII, ncomp = 3, scale = TRUE)
+ad.pca.before <- mixOmics::pca(ad.clr, ncomp = 3, scale = TRUE)
+ad.pca.ComBat <- mixOmics::pca(ad.ComBat, ncomp = 3, scale = TRUE)
+ad.pca.PLSDA_batch <- mixOmics::pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
+ad.pca.RUVIII <- mixOmics::pca(ad.RUVIII, ncomp = 3, scale = TRUE)
 
 ad.batch = factor(ad.metadata$sequencing_run_date, 
                   levels = unique(ad.metadata$sequencing_run_date))
 
-ad.pca.before.plot <- Scatter_Density(object = ad.pca.before, 
+ad.pca.before.plot <- Scatter_Density(components = ad.pca.before$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.before$prop_expl_var$X,
+                                      batch = ad.batch,
+                                      trt = ad.trt,
+                                      title = 'Before correction',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.ComBat.plot <- Scatter_Density(components = ad.pca.ComBat$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.ComBat$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'Before correction')
-ad.pca.ComBat.plot <- Scatter_Density(object = ad.pca.ComBat, 
-                                      batch = ad.batch, 
-                                      trt = ad.trt, 
-                                      title = 'ComBat')
-ad.pca.PLSDA_batch.plot <- Scatter_Density(object = ad.pca.PLSDA_batch, 
+                                      title = 'ComBat',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.PLSDA_batch.plot <- Scatter_Density(components = ad.pca.PLSDA_batch$variates$X, 
+                                           comp = c(1, 2),
+                                           expl.var = ad.pca.PLSDA_batch$prop_expl_var$X,
                                            batch = ad.batch, 
                                            trt = ad.trt, 
-                                           title = 'PLSDA-batch')
-ad.pca.RUVIII.plot <- Scatter_Density(object = ad.pca.RUVIII, 
+                                           title = 'PLSDA-batch',
+                                           color.set = color.mixo(1:5))
+
+ad.pca.RUVIII.plot <- Scatter_Density(components = ad.pca.RUVIII$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.RUVIII$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'RUVIII')
+                                      title = 'RUVIII',
+                                      color.set = color.mixo(1:5))
 
 grid.arrange(ad.pca.before.plot, ad.pca.ComBat.plot, 
              ad.pca.PLSDA_batch.plot, 
@@ -259,7 +279,7 @@ ad.prop.df[ad.prop.df < 0] = 0
 ad.prop.df <- as.data.frame(t(apply(ad.prop.df, 1, 
                                     function(x){x/sum(x)})))
 
-partVar_plot(prop.df = ad.prop.df)
+partVar_plot(prop.df = ad.prop.df, color.set = color.mixo(c(3,6,2,1)))
 
 ########################################
 

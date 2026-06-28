@@ -58,7 +58,7 @@ options(width=80)
 # Introduction
 
 
-Batch effects refer to sources of unwanted variation that are unrelated to and can obscure the biological factors of interest. Handling batch effects is a necessary step to improve the reproducibility of research studies. However, methods developed for batch effects often rely on strong assumptions about data characteristics and the types of batch effects.
+Batch effects refer to unwanted variation in measured data arising from biological, technical or computational factors that are not the primary focus of the study and that may obscure the biological effects of interest (e.g., treatment effects). Handling batch effects is a necessary step to improve the reproducibility of research studies. However, methods developed for batch effects often rely on strong assumptions about data characteristics and the types of batch effects.
 
 This hands-on practice provides guidelines for batch effect detection, management, and evaluation of method effectiveness through visual and numerical approaches. Although the practice will illustrate the workflow using microbiome data, the concepts and techniques presented are broadly applicable to any type of omics data.
 
@@ -71,12 +71,12 @@ This hands-on practice provides guidelines for batch effect detection, managemen
 
 First, let's load the packages necessary for the analysis, and check the version of each package.
 
+**Note**: There is currently an issue with downloading *PLSDAbatch* from Bioconductor. Please try installing it directly from GitHub instead, and make sure that the installed version is later than 2.0.0.
+
 ```{r}
 # CRAN
 cran.pkgs <- c('pheatmap', 'vegan', 'ruv', 'ggplot2', 
-               'performance', 'gridExtra')
-
-# gridExtra:grid.arrange
+               'performance', 'gridExtra', 'see')
 
 # install.packages(cran.pkgs)
 
@@ -86,6 +86,7 @@ bioc.pkgs <- c('mixOmics', 'sva', 'limma', 'Biobase', 'metagenomeSeq',
 
 # if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # BiocManager::install(bioc.pkgs)  
+# BiocManager::install("EvaYiwenWang/PLSDAbatch") # install from GitHub
 
 # load packages 
 suppressMessages(suppressWarnings(sapply(c(cran.pkgs, bioc.pkgs), require, 
@@ -146,10 +147,13 @@ To visualise the data, let's apply `pca()` function from *mixOmics* package and 
 
 
 ```{r ADpcaBefore, fig.align = 'center', fig.cap = 'PCA sample plot with densities for the AD data.'}
-ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
+ad.pca.before <- mixOmics::pca(ad.clr, ncomp = 3, scale = TRUE)
 
-Scatter_Density(object = ad.pca.before, batch = ad.batch, trt = ad.trt, 
-                title = 'AD data', trt.legend.title = 'Phenol conc.')
+Scatter_Density(components = ad.pca.before$variates$X, comp = c(1,2), 
+                expl.var = ad.pca.before$prop_expl_var$X,
+                batch = ad.batch, trt = ad.trt, 
+                title = 'AD data', trt.legend.title = 'Phenol conc.',
+                color.set = color.mixo(1:5))
 ```
 
 #### Exercise 2: Interpret the PCA plot created above
@@ -170,21 +174,21 @@ In the figure above, we observed 1) a clear distinction between samples treated 
 
 ## Boxplots and density plots
 
-We can also visualise individual variables (OTUs in this case). For example, we can select the top OTU driving the major variance in PCA using `selectVar()` in *mixOmics* package. We can then plot this OTU as boxplots and density plots using `box_plot()` and `density_plot()` in *PLSDAbatch*.
+We can also visualise individual variables (OTUs in this case). For example, we can select the top OTU driving the major variation in PCA using `selectVar()` in *mixOmics* package. We can then plot this OTU as boxplots and density plots using `box_plot()` and `density_plot()` in *PLSDAbatch*.
 
 
-```{r ADboxBefore, out.width = '60%', fig.align = 'center', fig.cap = 'Boxplots of sample values for "OTU28" in the AD data.'}
+```{r ADboxBefore, out.width = '60%', fig.align = 'center', fig.cap = "Boxplots of sample values for 'OTU28' in the AD data."}
 ad.OTU.name <- selectVar(ad.pca.before, comp = 1)$name[1]
 
 ad.OTU_batch <- data.frame(value = ad.clr[,ad.OTU.name], batch = ad.batch)
 head(ad.OTU_batch)
 
 box_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'), 
-         x.angle = 30)
+         x.angle = 30, color.set = color.mixo(1:5))
 ```
 
-```{r ADdensityBefore, out.width = '60%', fig.align = 'center', fig.cap = 'Density plots of sample values for "OTU28" in the AD data.'}
-density_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'))
+```{r ADdensityBefore, out.width = '60%', fig.align = 'center', fig.cap = "Density plots of sample values for 'OTU28' in the AD data."}
+density_plot(df = ad.OTU_batch, title = paste(ad.OTU.name, '(AD data)'), color.set = color.mixo(1:5))
 ```
 
 The boxplot and density plot indicated a strong date effect because of the differences between "14/04/2016", "21/09/2017" and the other dates in the "OTU28".
@@ -289,46 +293,50 @@ The methods we use to account for batch effects include those specifically desig
 
 ### Linear regression: linear model (LM) and linear mixed model (LMM)
 
-Linear regression will be conducted using `linear_regres()` function in *PLSDAbatch*. We integrated the *performance* package, which assesses the performance of regression models, into function `linear_regres()`. Therefore, we can apply `check_model()` from *performance* to the outputs of `linear_regres()` to diagnose the validity of models fitted with treatment and batch effects for each variable [@daniel2020performance]. 
+Linear regression will be conducted using `linear_regres()` function in *PLSDAbatch*. We integrated the *performance* package, which assesses the performance of regression models, into function `linear_regres()`. Therefore, we can apply `check_model()` from *performance* to the outputs of `linear_regres()` to diagnose the validity of models fitted with treatment and batch factors for each variable [@daniel2020performance]. 
 
-We can also extract performance metrics such as adjusted R2, RMSE, RSE, AIC and BIC for models fitted with and without batch effects, which are included in the outputs of `linear_regres()`.
+We can also extract performance metrics such as adjusted R2, RMSE, RSE, AIC and BIC for models fitted with and without batch factors, which are included in the outputs of `linear_regres()`.
 
 Let's apply `type = "linear model"` to the **AD data**, given its balanced batch x treatment design.
 
 
-```{r ADlm, fig.height = 13, fig.width = 12, out.width = '100%', fig.align = 'center', fig.cap = 'Diagnostic plots for the model fitted with batch effects for "OTU12" in the AD data.'}
+```{r ADlm, fig.height = 13, fig.width = 12, out.width = '100%', fig.align = 'center', fig.cap = "Diagnostic plots for the model fitted with batch effects for 'OTU12' in the AD data."}
 ad.lm <- linear_regres(data = ad.clr, 
                        trt = ad.trt, 
                        batch.fix = ad.batch, 
                        type = 'linear model',
-                       p.adjust.method = 'fdr')
-
-# p values adjusted for batch effects
-ad.p.adj <- ad.lm$adj.p 
+                       p.adjust.method = 'fdr', 
+                       criterion = 'AIC')
 
 check_model(ad.lm$model$OTU12)
 ```
 
-To assess the validity of the model fitted with both treatment and batch effects, we can use diagnostic plots to check whether the assumptions are met for each microbial variable. For example, for "OTU12", the assumptions of linearity (or homoscedasticity) and homogeneity of variance were not satisfied (top panel). No sample was classified as an outlier with a Cook's distance greater than or equal to 0.9, however, samples "57", "39", "47", "44" and "16" were relatively close to the contour lines. The correlation between batch (`batch.fix`) and treatment (`trt`) effects was very low (< 5), indicating a well-fitted model with low collinearity (middle panel). The distribution of residuals was very close to normal (bottom panel). For microbial variables that violate some model assumptions, their results should be interpreted with caution. 
+To assess the validity of the model fitted with both treatment and batch factors, we can use diagnostic plots to check whether the assumptions are met for each microbial variable. For example, for "OTU12", the assumptions of linearity (or homoscedasticity) and homogeneity of variance were not satisfied (top right & middle left). No sample was classified as an outlier with a Cook's distance greater than or equal to 0.9, however, samples "57", "39", "47", "44" and "16" were relatively close to the contour lines. The correlation between batch (`batch.fix`) and treatment (`trt`) factors was very low (< 5), indicating a well-fitted model with low collinearity (bottom left). The distribution of residuals was very close to normal (bottom panel). For microbial variables that violate some model assumptions, their results should be interpreted with caution. 
 
-For the performance metrics of models fitted with or without batch effects, we show results for a subset of variables as an example only.
+The `criterion` is used to determine whether the model with or without batch factors should be preferred. Here, we have selected `AIC` as the criterion. For each microbial variable, the model with the lower AIC is considered to provide the better fit and is therefore preferred.
 
+```{r}
+ad.lm.best_model <- ad.lm$best.model
+names(ad.lm.best_model) <- colnames(ad.clr)
+head(ad.lm.best_model)
+
+head(ad.lm$AIC)
+```
+
+We can also examine other performance metrics, such as adjusted $R^2$. However, because adjusted $R^2$ was not selected as the model-selection criterion, it is not used to choose between the models with and without batch factors.
 
 ```{r}
 head(ad.lm$adj.R2)
 ```
 
-The adjusted $R^2$ of the model with both treatment and batch effects was higher for all the listed OTUs compared to the model with treatment effects only, suggesting that including batch effects explained more variance in the data and resulted in a better-fitting model.
+The choice of the better model depends strongly on the criterion selected.
 
-We can also compare the AIC of models fitted with and without batch effects.
+We retain only the $p$-values from the preferred model, which can be obtained as follows:
 
 ```{r}
-head(ad.lm$AIC)
+# adjusted p values 
+ad.p.adj <- ad.lm$adj.p 
 ```
-
-A lower AIC indicates a better fit, as seen here for the model fitted with batch effects across all OTUs.
-
-Both results strongly suggest that batch effects should be included in the linear model.
 
 
 ### Remove unwanted variation in 4 steps (RUV4) 
@@ -368,7 +376,7 @@ ad.ruv4.p <- ad.ruv4$p
 ad.ruv4.p.adj <- p.adjust(ad.ruv4.p, method = "fdr")
 ```
 
-Note: A package named *RUVSeq* has been developed for count data. It provides `RUVg()` which uses negative control variables, as well as other functions such as `RUVs()` and `RUVr()`, which use sample replicates [@moskovicz2020skin] or residuals from regression on treatment effects to estimate and account for latent batch effects. However, for CLR-transformed data, we still recommend using the standard *ruv* package.
+Note: A package named *RUVSeq* has been developed for count data. It provides `RUVg()` which uses negative control variables, as well as other functions such as `RUVs()` and `RUVr()`, which use sample replicates [@moskovicz2020skin] or residuals from regression on treatment factors to estimate and account for latent batch effects. However, for CLR-transformed data, we still recommend using the standard *ruv* package.
 
 Another method, SVA, which accounts for unknown batch effects, can be found in the section "To go further". 
 
@@ -381,7 +389,7 @@ The methods we will use to correct for batch effects include ComBat, PLSDA-batch
 
 The `ComBat()` function (from *sva* package) supports both parametric and non-parametric correction, controlled by the option `par.prior`. For parametric adjustment, the model's validity can be assessed by setting `prior.plots = T` [@leek2012sva].
 
-For **AD data**, we apply a non-parametric correction (`par.prior = FALSE`), using the input batch grouping information (`batch`) and the treatment design matrix (`mod`) to calculate the batch effect corrected data `ad.ComBat`. We chose the non-parametric approach based on the assumption that microbial abundance data, even after CLR transformation, do not follow a standard distribution. 
+For the **AD data**, we apply non-parametric correction (`par.prior = FALSE`), using the input batch factor (`batch`) and the design matrix with the treatment factor (`mod`) to calculate the batch effect corrected data `ad.ComBat`. We chose the non-parametric approach based on the assumption that microbial abundance data, even after CLR transformation, may not follow a standard distribution. 
 
 
 ```{r}
@@ -395,38 +403,24 @@ ad.ComBat <- t(ComBat(t(ad.clr), batch = ad.batch,
 
 Before applying PLSDA-batch, we need to specify the optimal number of components related to treatment (`ncomp.trt`) and batch effects (`ncomp.bat`).
 
-To determine `ncomp.trt`, we will use the `plsda()` from *mixOmics* with only the treatment grouping information to estimate the optimal number of treatment-related components to retain.
+In PLSDA-based methods, a categorical `Y` variable is converted into a 0/1 dummy matrix, A `Y` variable with $k$ classes becomes a matrix with $k$ columns, but only $k-1$ of these are informative because the final column can always be derived from the others. Mathmetically, the rank of `Y` matrix is $k-1$.
 
+In the **AD data**, `ad.trt` has 2 classes and `ad.batch` has 5 batches, so we choose 1 component for the treatment effect and 4 components for the batch effect.
 
-```{r}
-# estimate the number of treatment components
-ad.trt.tune <- plsda(X = ad.clr, Y = ad.trt, ncomp = 5)
-ad.trt.tune$prop_expl_var #1
-```
-
-We should choose the number of components that explain 100% of the variance in the outcome matrix `Y`. From the result, 1 component was sufficient to preserve the treatment information.
-
-To determine `ncomp.bat`, we will use the `PLSDA_batch()` function (*PLSDAbatch* package) with both treatment and batch grouping information, along with the specified number of treatment-related components, to estimate the optimal number of batch components to remove.
-
+Here, we use the default `regression` mode, which is also the recommended mode. In this application, our goal is to understand how `X` explains and predicts `Y`: specifically, to remove the variation in `X` that explains `Y.batch` while preserving the variation in `X` that explains `Y.trt`.
 
 ```{r}
-# estimate the number of batch components
-ad.batch.tune <- PLSDA_batch(X = ad.clr, 
-                             Y.trt = ad.trt, Y.bat = ad.batch,
-                             ncomp.trt = 1, ncomp.bat = 10)
-ad.batch.tune$explained_variance.bat 
-sum(ad.batch.tune$explained_variance.bat$Y[seq_len(4)]) #4
-```
+# the optimal number of treatment components
+nlevels(ad.trt) - 1
 
-Using the same criterion as for selecting treatment components, we will choose the number of batch-related components that explain 100% of the variance in the batch outcome matrix (`Y.bat`). According to the result, 4 components are required to remove the batch effects.
+# the optimal number of batch components
+nlevels(ad.batch) - 1
 
-Then let's correct for batch effects by applying `PLSDA_batch()` with the input treatment and batch grouping information, along with the estimated optimal numbers of related components.
-
-
-```{r}
-ad.PLSDA_batch.res <- PLSDA_batch(X = ad.clr, 
+ad.PLSDA_batch.res <- PLSDA_batch(X = ad.clr,
                                   Y.trt = ad.trt, Y.bat = ad.batch,
-                                  ncomp.trt = 1, ncomp.bat = 4)
+                                  ncomp.trt = 1, ncomp.bat = 4,
+                                  mode = "regression"
+)
 ad.PLSDA_batch <- ad.PLSDA_batch.res$X.nobatch
 ```
 
@@ -459,10 +453,10 @@ rownames(ad.RUVIII) <- rownames(ad.clr)
 First, we can compare the PCA sample plots before and after batch effect correction using different methods.
 
 ```{r}
-ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
-ad.pca.ComBat <- pca(ad.ComBat, ncomp = 3, scale = TRUE)
-ad.pca.PLSDA_batch <- pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
-ad.pca.RUVIII <- pca(ad.RUVIII, ncomp = 3, scale = TRUE)
+ad.pca.before <- mixOmics::pca(ad.clr, ncomp = 3, scale = TRUE)
+ad.pca.ComBat <- mixOmics::pca(ad.ComBat, ncomp = 3, scale = TRUE)
+ad.pca.PLSDA_batch <- mixOmics::pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
+ad.pca.RUVIII <- mixOmics::pca(ad.RUVIII, ncomp = 3, scale = TRUE)
 ```
 
 ```{r, fig.show='hide'}
@@ -470,22 +464,37 @@ ad.pca.RUVIII <- pca(ad.RUVIII, ncomp = 3, scale = TRUE)
 ad.batch = factor(ad.metadata$sequencing_run_date, 
                   levels = unique(ad.metadata$sequencing_run_date))
 
-ad.pca.before.plot <- Scatter_Density(object = ad.pca.before, 
+ad.pca.before.plot <- Scatter_Density(components = ad.pca.before$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.before$prop_expl_var$X,
+                                      batch = ad.batch,
+                                      trt = ad.trt,
+                                      title = 'Before correction',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.ComBat.plot <- Scatter_Density(components = ad.pca.ComBat$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.ComBat$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'Before correction')
-ad.pca.ComBat.plot <- Scatter_Density(object = ad.pca.ComBat, 
-                                      batch = ad.batch, 
-                                      trt = ad.trt, 
-                                      title = 'ComBat')
-ad.pca.PLSDA_batch.plot <- Scatter_Density(object = ad.pca.PLSDA_batch, 
+                                      title = 'ComBat',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.PLSDA_batch.plot <- Scatter_Density(components = ad.pca.PLSDA_batch$variates$X, 
+                                           comp = c(1, 2),
+                                           expl.var = ad.pca.PLSDA_batch$prop_expl_var$X,
                                            batch = ad.batch, 
                                            trt = ad.trt, 
-                                           title = 'PLSDA-batch')
-ad.pca.RUVIII.plot <- Scatter_Density(object = ad.pca.RUVIII, 
+                                           title = 'PLSDA-batch',
+                                           color.set = color.mixo(1:5))
+
+ad.pca.RUVIII.plot <- Scatter_Density(components = ad.pca.RUVIII$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.RUVIII$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'RUVIII')
+                                      title = 'RUVIII',
+                                      color.set = color.mixo(1:5))
 
 ```
 
@@ -543,7 +552,7 @@ ad.prop.df[ad.prop.df < 0] = 0
 ad.prop.df <- as.data.frame(t(apply(ad.prop.df, 1, 
                                     function(x){x/sum(x)})))
 
-partVar_plot(prop.df = ad.prop.df)
+partVar_plot(prop.df = ad.prop.df, color.set = color.mixo(c(3,6,2,1)))
 ```
 
 As shown in the figure above, the intersection between batch and treatment variance was small (1.3%), indicating that the batch x treatment design is not highly unbalanced. As a result, unweighted PLSDA-batch remained applicable, and the weighted version was not used. Among all methods, the data corrected with PLSDA-batch showed the best performance, explaining a higher proportion of treatment variance compared to the others. Notably, replicates in **AD data** are not present across all batches, highlighting the critical role of sample replicates in the effectiveness of RUVIII. Therefore, we calculated pseudo replicates and recalculated the batch effect corrected data. The result showed clear improvement, which can be found in the section "To go further".
@@ -673,15 +682,18 @@ To detect batch effects, both visual tools (e.g., PCA, boxplots, density plots, 
 
 Both strategies assume a balanced batch × treatment design. If the design is nested, batch effects can only be accounted for using a linear mixed model. If the design is unbalanced but not nested, batch effects can either be controlled using standard linear models or removed using weighted PLSDA-batch. 
 
-In most cases, batch grouping information is assumed to be known. When it is not, batch estimation methods such as RUV4, RUVIII and SVA can be employed. RUV-based methods rely on negative control variables and/or sample replicates, while SVA estimates batch effects from variables that are least affected by treatment (see section "To go further"). However, for RUV methods, these negative controls and sample replicates must capture the full spectrum of batch variation; otherwise, batch effects may not be completely addressed. We emphasised this issue in the section "Assessing batch effect correction - pRDA", where limited replicates posed challenges for batch effect removal. Moreover, some estimation methods (e.g., SVA) assume that batch effects are independent of treatment. When batch and treatment are correlated, the batch effect cannot be accurately estimated and may lead to spurious associations.
+In most cases, batch factors are assumed to be known. When it is not, batch estimation methods such as RUV4, RUVIII and SVA can be employed. RUV-based methods rely on negative control variables and/or sample replicates, while SVA estimates batch effects from variables that are least affected by treatment (see section "To go further"). However, for RUV methods, these negative controls and sample replicates must capture the full spectrum of batch variation; otherwise, batch effects may not be completely addressed. We emphasised this issue in the section "Assessing batch effect correction - pRDA", where limited replicates posed challenges for batch effect removal. Moreover, some estimation methods (e.g., SVA) assume that batch effects are independent of treatment. When batch and treatment are correlated, the batch effect cannot be accurately estimated and may lead to spurious associations.
 
-Additionally, many methods for batch effect management assume systematic batch effects across variables, and some models are highly influenced by this assumption (e.g., SVA, ComBat and RUV methods). Therefore, we recommend validating the model before applying it. For an appropriate choice of method, see the figure below: Decision tree for method selection. 
+Additionally, some methods for batch effect management assume systematic batch effects across variables, and are highly influenced by this assumption (e.g., SVA, ComBat and RUV methods). Therefore, we recommend validating the model before applying it. For an appropriate choice of method, see the figure below: Decision tree for method selection. 
 
 The next critical step is to evaluate the effectiveness of batch effect management. While such evaluation is often implicit in methods that account for batch effects (e.g., linear regression), it is essential for methods that remove them. This can be done by comparing the data before and after correction using the same tools employed for batch effect detection. Additionally, $R^2$ values can be calculated for each microbial variable to quantify the variance explained by batch and treatment, and alignment scores can be used to assess how well samples from different batches are mixed. However, individual evaluation tools may have limitations. For example, PCA relies on visual interpretation, while alignment scores focus solely on distances in the PCA projection space. Therefore, a robust conclusion should be based on multiple complementary evaluation methods.
 
-Once batch effects have been adequately addressed, downstream analyses, such as multivariate discriminant analysis or univariate differential analysis, can be performed. Among these, multivariate methods are often more appropriate for microbiome data, given the natural correlations among microbial variables arising from biological interactions. Different types of methods may be suitable for different omics data.
+Once batch effects have been adequately removed, the corrected data can be used in downstream analyses such as dimension reduction, visualisation, clustering, network analysis, data integration and prediction. For variable selection or biomarker discovery, however, I recommend accounting for batch effects directly within the statistical model rather than first correcting the data and then performing variable selection. This two-step approach adjusts the microbial profiles but does not model the relationship between the treatment and the batch factor. When the batch and treatment factors are associated, this mismatch may create false signals or weaken true microbiome–treatment associations.
+
 
 ![](./method_choice.png)
+
+
 <div align="center">
 **Decision tree for method selection.** 
 </div>
@@ -790,9 +802,9 @@ head(ADcoefs)
 
 #### Surrogate variable analysis (SVA)
 
-SVA only accounts for unknown batch effects. Therefore, we assume that the batch grouping information in the **AD data** is unknown, and that the batch effects are systematic. 
+SVA only accounts for unknown batch effects. Therefore, we assume that the batch factor in the **AD data** is unknown, and that the batch effects are systematic. 
 
-We first need to build two design matrices with (`ad.mod`) and without (`ad.mod0`) treatment grouping information using `model.matrix()` function from *stats*. We will then use `num.sv()` from *sva* package to determine the number of surrogate or batch-related variables `n.sv` to estimate in function `sva()`.
+We first need to build two design matrices with (`ad.mod`) and without (`ad.mod0`) the treatment factor using `model.matrix()` function from *stats*. We will then use `num.sv()` from *sva* package to determine the number of surrogate or batch-related variables `n.sv` to estimate in function `sva()`.
 
 ```{r}
 # the design with treatment
@@ -809,7 +821,7 @@ ad.sva <- sva(t(ad.clr),
               n.sv = ad.sva.n)
 ```
 
-The estimated batch effects are then input into `f.pvalue()` to calculate the p values of treatment effects. In SVA, batch effects are assumed to be independent of treatment effects. If they are correlated due to study design or biological reasons, the estimation of batch-related variables will be biased and may affect the accuracy of downstream linear regression results. However, some correlation may exist between the estimated batch effects and treatment due to how SVA estimates batch-related variables from those least affected by treatment. These variables may still carry some treatment information, leading to estimated batch effects that are weakly correlated with treatment effects.  [@wang2020managing].
+The estimated batch factors are then input into `f.pvalue()` to calculate the p values of treatment effects. In SVA, batch factors are assumed to be independent of treatment factors. If they are correlated due to study design or biological reasons, the estimation of batch-related variables will be biased and may affect the accuracy of downstream linear regression results. However, some correlation may exist between the estimated batch factors and treatment due to how SVA estimates batch-related variables from those least affected by treatment. These variables may still carry some treatment variation, leading to estimated batch factors that are weakly correlated with treatment factors.  [@wang2020managing].
 
 ```{r}
 # include estimated batch-related variables in the linear model
@@ -825,9 +837,9 @@ ad.sva.p.adj <- p.adjust(ad.sva.p, method = 'fdr')
 
 ### removeBatchEffect
 
-Before applying removeBatchEffect, we need to prepare a design matrix (`ad.mod`) that includes the treatment grouping information, which is used to preserve treatment effects during batch effect correction. This design matrix can be generated using `model.matrix()` function from *stats*. 
+Before applying removeBatchEffect, we need to prepare a design matrix (`ad.mod`) that includes the treatment factor, which is used to preserve treatment effects during batch effect correction. This design matrix can be generated using `model.matrix()` function from *stats*. 
 
-Then we can use `removeBatchEffect()` function (*limma* package) with the batch grouping information (`batch`) and the treatment design matrix (`design`) as inputs to calculate the batch effect corrected data `ad.rBE`.
+Then we can use `removeBatchEffect()` function (*limma* package) with the batch factor (`batch`) and the treatment design matrix (`design`) as inputs to calculate the batch effect corrected data `ad.rBE`.
 
 ```{r}
 # generate treatment design matrix
@@ -844,8 +856,6 @@ Applying sPLSDA-batch is similar to applying PLSDA-batch. We will use the same f
 
 ```{r, eval = F}
 # estimate the number of variables to select per treatment component
-set.seed(777)
-
 # generate a range of possible values
 ad.test.keepX = c(seq(1, 10, 1), seq(20, 100, 10), 
                   seq(150, 231, 50), 231)
@@ -856,30 +866,18 @@ ad.trt.tune.v <- tune.splsda(X = ad.clr,
                              test.keepX = ad.test.keepX, 
                              validation = 'Mfold', 
                              folds = 4, 
-                             nrepeat = 50)
+                             nrepeat = 50, 
+                             seed = 777)
 ad.trt.tune.v$choice.keepX #100
 ```
 
-Here, the optimal number of variables to select for the treatment component was 100. Since we have adjusted the amount of treatment variation to preserve, we need to re-estimate the optimal number of components related to batch effects using the same criterion described in the section "PLSDA-batch".
-
-```{r}
-# estimate the number of batch components
-ad.batch.tune <- PLSDA_batch(X = ad.clr, 
-                             Y.trt = ad.trt, 
-                             Y.bat = ad.batch,
-                             ncomp.trt = 1, keepX.trt = 100,
-                             ncomp.bat = 10)
-ad.batch.tune$explained_variance.bat #4
-sum(ad.batch.tune$explained_variance.bat$Y[seq_len(4)])
-```
-
-According to the result, we needed 4 batch-related components to remove batch variance from the data using function `PLSDA_batch()`.
+Here, the optimal number of variables to select for the treatment component is 100. 
 
 ```{r}
 ad.sPLSDA_batch.res <- PLSDA_batch(X = ad.clr, 
                                    Y.trt = ad.trt, Y.bat = ad.batch,
                                    ncomp.trt = 1, keepX.trt = 100,
-                                   ncomp.bat = 4)
+                                   ncomp.bat = 4, mode = "regression")
 ad.sPLSDA_batch <- ad.sPLSDA_batch.res$X.nobatch
 ```
 
@@ -890,8 +888,9 @@ Note: For an unbalanced batch x treatment design (except in the case of a nested
 For PN correction, let's apply `percentile_norm()` function from *PLSDAbatch* package and specify a control group (`ctrl.grp`).
 
 ```{r}
+set.seed(777)
 ad.PN <- percentile_norm(data = ad.clr, batch = ad.batch, 
-                         trt = ad.trt, ctrl.grp = '0-0.5')
+                         trt = ad.trt, ctrl.grp = "0-0.5")
 ```
 
 ### RUVIII with pseudo replicates
@@ -950,14 +949,14 @@ rownames(ad.RUVIII.new) <- rownames(ad.clr.new)
 Here, we compare the PCA sample plots before and after batch effect correction using all methods presented in the workshop.
 
 ```{r}
-ad.pca.before <- pca(ad.clr, ncomp = 3, scale = TRUE)
-ad.pca.rBE <- pca(ad.rBE, ncomp = 3, scale = TRUE)
-ad.pca.ComBat <- pca(ad.ComBat, ncomp = 3, scale = TRUE)
-ad.pca.PLSDA_batch <- pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
-ad.pca.sPLSDA_batch <- pca(ad.sPLSDA_batch, ncomp = 3, scale = TRUE)
-ad.pca.PN <- pca(ad.PN, ncomp = 3, scale = TRUE)
-ad.pca.RUVIII <- pca(ad.RUVIII, ncomp = 3, scale = TRUE)
-ad.pca.RUVIII.new <- pca(ad.RUVIII.new, ncomp = 3, scale = TRUE)
+ad.pca.before <- mixOmics::pca(ad.clr, ncomp = 3, scale = TRUE)
+ad.pca.rBE <- mixOmics::pca(ad.rBE, ncomp = 3, scale = TRUE)
+ad.pca.ComBat <- mixOmics::pca(ad.ComBat, ncomp = 3, scale = TRUE)
+ad.pca.PLSDA_batch <- mixOmics::pca(ad.PLSDA_batch, ncomp = 3, scale = TRUE)
+ad.pca.sPLSDA_batch <- mixOmics::pca(ad.sPLSDA_batch, ncomp = 3, scale = TRUE)
+ad.pca.PN <- mixOmics::pca(ad.PN, ncomp = 3, scale = TRUE)
+ad.pca.RUVIII <- mixOmics::pca(ad.RUVIII, ncomp = 3, scale = TRUE)
+ad.pca.RUVIII.new <- mixOmics::pca(ad.RUVIII.new, ncomp = 3, scale = TRUE)
 ```
 
 ```{r, fig.show='hide'}
@@ -965,38 +964,69 @@ ad.pca.RUVIII.new <- pca(ad.RUVIII.new, ncomp = 3, scale = TRUE)
 ad.batch = factor(ad.metadata$sequencing_run_date, 
                   levels = unique(ad.metadata$sequencing_run_date))
 
-ad.pca.before.plot <- Scatter_Density(object = ad.pca.before, 
-                                      batch = ad.batch, 
-                                      trt = ad.trt, 
-                                      title = 'Before correction')
-ad.pca.rBE.plot <- Scatter_Density(object = ad.pca.rBE, 
+ad.pca.before.plot <- Scatter_Density(components = ad.pca.before$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.before$prop_expl_var$X,
+                                      batch = ad.batch,
+                                      trt = ad.trt,
+                                      title = 'Before correction',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.rBE.plot <- Scatter_Density(components = ad.pca.rBE$variates$X, 
+                                   comp = c(1, 2),
+                                   expl.var = ad.pca.rBE$prop_expl_var$X,
                                    batch = ad.batch, 
                                    trt = ad.trt, 
-                                   title = 'removeBatchEffect')
-ad.pca.ComBat.plot <- Scatter_Density(object = ad.pca.ComBat, 
+                                   title = 'removeBatchEffect',
+                                   color.set = color.mixo(1:5))
+
+ad.pca.ComBat.plot <- Scatter_Density(components = ad.pca.ComBat$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.ComBat$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'ComBat')
-ad.pca.PLSDA_batch.plot <- Scatter_Density(object = ad.pca.PLSDA_batch, 
+                                      title = 'ComBat',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.PLSDA_batch.plot <- Scatter_Density(components = ad.pca.PLSDA_batch$variates$X, 
+                                           comp = c(1, 2),
+                                           expl.var = ad.pca.PLSDA_batch$prop_expl_var$X,
                                            batch = ad.batch, 
                                            trt = ad.trt, 
-                                           title = 'PLSDA-batch')
-ad.pca.sPLSDA_batch.plot <- Scatter_Density(object = ad.pca.sPLSDA_batch, 
+                                           title = 'PLSDA-batch',
+                                           color.set = color.mixo(1:5))
+
+ad.pca.sPLSDA_batch.plot <- Scatter_Density(components = ad.pca.sPLSDA_batch$variates$X, 
+                                            comp = c(1, 2),
+                                            expl.var = ad.pca.sPLSDA_batch$prop_expl_var$X,
                                             batch = ad.batch, 
                                             trt = ad.trt, 
-                                            title = 'sPLSDA-batch')
-ad.pca.PN.plot <- Scatter_Density(object = ad.pca.PN, 
+                                            title = 'sPLSDA-batch',
+                                            color.set = color.mixo(1:5))
+
+ad.pca.PN.plot <- Scatter_Density(components = ad.pca.PN$variates$X, 
+                                  comp = c(1, 2),
+                                  expl.var = ad.pca.PN$prop_expl_var$X,
                                   batch = ad.batch, 
                                   trt = ad.trt, 
-                                  title = 'Percentile Normalisation')
-ad.pca.RUVIII.plot <- Scatter_Density(object = ad.pca.RUVIII, 
+                                  title = 'Percentile Normalisation',
+                                  color.set = color.mixo(1:5))
+
+ad.pca.RUVIII.plot <- Scatter_Density(components = ad.pca.RUVIII$variates$X, 
+                                      comp = c(1, 2),
+                                      expl.var = ad.pca.RUVIII$prop_expl_var$X,
                                       batch = ad.batch, 
                                       trt = ad.trt, 
-                                      title = 'RUVIII')
-ad.pca.RUVIII.new.plot <- Scatter_Density(object = ad.pca.RUVIII.new, 
-                                      batch = ad.batch.new, 
-                                      trt = ad.trt.new, 
-                                      title = 'RUVIII+pseR')
+                                      title = 'RUVIII',
+                                      color.set = color.mixo(1:5))
+
+ad.pca.RUVIII.new.plot <- Scatter_Density(components = ad.pca.RUVIII.new$variates$X, 
+                                          comp = c(1, 2),
+                                          expl.var = ad.pca.RUVIII.new$prop_expl_var$X,
+                                          batch = ad.batch.new, 
+                                          trt = ad.trt.new, 
+                                          title = 'RUVIII+pseR',
+                                          color.set = color.mixo(1:5))
 
 ```
 
@@ -1047,7 +1077,7 @@ RUVIII.prop <- RUVIII.prop/sum(RUVIII.prop)
 
 ad.prop.df <- rbind(ad.prop.df, `RUVIII+pseR` = RUVIII.prop)
 
-partVar_plot(prop.df = ad.prop.df)
+partVar_plot(prop.df = ad.prop.df, color.set = color.mixo(c(3,6,2,1)))
 ```
 
 We can also apply additional methods introduced in the workshop to evaluate batch effect correction.

@@ -1,8 +1,8 @@
 # MIG Workshop: Managing batch effects in biological studies
 
-**Author: Yiwen (Eva) Wang**
+**Speakers: Yiwen (Eva) Wang & David Hirst**
 
-**Tutor: Xiaochen Zhang**
+**Tutors: Xiaochen Zhang & Bin Xie**
 
 | Audience      | Prerequisites | Duration    |
 | ------------- | ------------- | ----------- |
@@ -24,7 +24,7 @@ Type the R command lines:
 ``` 
 # CRAN packages
 cran.pkgs <- c('pheatmap', 'vegan', 'ruv', 'ggplot2', 
-               'performance', 'gridExtra')
+               'performance', 'gridExtra', 'see')
 
 install.packages(cran.pkgs)
 
@@ -34,6 +34,7 @@ bioc.pkgs <- c('mixOmics', 'sva', 'limma', 'Biobase', 'metagenomeSeq',
 
 if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install(bioc.pkgs)  
+BiocManager::install("EvaYiwenWang/PLSDAbatch") # install from GitHub
 
 # Test if packages have been installed
 sapply(c(cran.pkgs, bioc.pkgs), require, character.only = TRUE)
@@ -54,7 +55,6 @@ All data used for the workshop are in [Rdata](https://melbintgen.github.io/Batch
 
 ### License
 This repository is licensed under the GNU Affero General Public License v3.0.
-
 
 
 ### References
